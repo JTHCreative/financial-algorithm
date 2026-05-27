@@ -10,6 +10,7 @@ venv/
 node_modules/
 dist/
 .vite/
+*.tsbuildinfo
 
 # OS
 .DS_Store
@@ -18,3 +19,7 @@ Thumbs.db
 # Editor
 .idea/
 .vscode/
+
+# Frontend build
+frontend/dist/
+frontend/node_modules/

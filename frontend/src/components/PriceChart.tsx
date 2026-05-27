@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { fetchHistory, HistoryPoint } from "../api";
+import { fetchHistory, EnrichedBar } from "../api";
 
 interface Props {
   ticker: string;
@@ -18,7 +18,7 @@ interface Props {
 }
 
 export function PriceChart({ ticker, period, interval }: Props) {
-  const [points, setPoints] = useState<HistoryPoint[]>([]);
+  const [points, setPoints] = useState<EnrichedBar[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
