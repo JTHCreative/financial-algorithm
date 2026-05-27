@@ -47,7 +47,28 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-## Architecture
+## Daily S&P 500 snapshot
+
+The `.github/workflows/snapshot.yml` action runs every weekday at 22:00 UTC
+(also runnable manually via **Actions → Daily S&P 500 snapshot → Run workflow**).
+It:
+
+1. Pulls the S&P 500 constituents from Wikipedia.
+2. Downloads ~2 years of daily history per ticker (yfinance, ~12 parallel
+   workers).
+3. Computes the current signal and runs a long/flat backtest using the
+   identical RSI/MACD/SMA/Bollinger rules the live UI uses (no lookahead:
+   enter at next bar's open after a BUY score, exit at next bar's open
+   after a SELL score, no transaction costs).
+4. Writes `frontend/public/snapshot.json` and commits it to `main` — which
+   then triggers the Pages deploy workflow automatically.
+
+The Screener tab in the UI ranks all ~500 stocks by signal action, sector,
+confidence, strategy return, buy-and-hold return, and alpha. Click any row
+to see the per-component rationale, suggested position size, and the live
+price chart.
+
+
 
 ```
 financial-algorithm/

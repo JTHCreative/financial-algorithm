@@ -212,3 +212,82 @@ def result_to_dict(result: StrategyResult) -> dict:
     d = asdict(result)
     d["components"] = [asdict(c) for c in result.components]
     return d
+
+
+def _row_score(curr: pd.Series, prev: pd.Series) -> int:
+    components = [
+        _rsi_component(curr["rsi_14"]),
+        _macd_component(curr, prev),
+        _sma_component(curr, prev),
+        _bollinger_component(curr),
+    ]
+    return sum(c.score for c in components)
+
+
+@dataclass
+class BacktestResult:
+    strategy_return_pct: float
+    buy_hold_return_pct: float
+    alpha_pct: float
+    num_trades: int
+    first_date: str
+    last_date: str
+
+
+def backtest(
+    df_with_indicators: pd.DataFrame,
+    initial_cash: float = 10000.0,
+    buy_threshold: int = 3,
+    sell_threshold: int = -3,
+) -> BacktestResult:
+    """Long/flat backtest. Enters at next bar's open after a BUY score,
+    exits at next bar's open after a SELL score. No transaction costs."""
+    if len(df_with_indicators) < 3:
+        raise ValueError("Need at least 3 bars to backtest.")
+
+    cash = float(initial_cash)
+    shares = 0.0
+    trades = 0
+    in_position = False
+    pending: Optional[str] = None  # 'BUY' or 'SELL' to execute next bar
+
+    for i in range(1, len(df_with_indicators)):
+        curr = df_with_indicators.iloc[i]
+        prev = df_with_indicators.iloc[i - 1]
+
+        # Execute the previous bar's pending order at this bar's open.
+        if pending == "BUY" and not in_position:
+            price = float(curr["open"])
+            shares = cash / price
+            cash = 0.0
+            in_position = True
+            trades += 1
+        elif pending == "SELL" and in_position:
+            price = float(curr["open"])
+            cash = shares * price
+            shares = 0.0
+            in_position = False
+            trades += 1
+        pending = None
+
+        score = _row_score(curr, prev)
+        if not in_position and score >= buy_threshold:
+            pending = "BUY"
+        elif in_position and score <= sell_threshold:
+            pending = "SELL"
+
+    final_price = float(df_with_indicators.iloc[-1]["close"])
+    final_value = cash + shares * final_price
+    first_price = float(df_with_indicators.iloc[0]["close"])
+
+    strategy_return = (final_value - initial_cash) / initial_cash * 100
+    buy_hold_return = (final_price - first_price) / first_price * 100
+
+    return BacktestResult(
+        strategy_return_pct=round(strategy_return, 2),
+        buy_hold_return_pct=round(buy_hold_return, 2),
+        alpha_pct=round(strategy_return - buy_hold_return, 2),
+        num_trades=trades,
+        first_date=df_with_indicators.index[0].strftime("%Y-%m-%d"),
+        last_date=df_with_indicators.index[-1].strftime("%Y-%m-%d"),
+    )
