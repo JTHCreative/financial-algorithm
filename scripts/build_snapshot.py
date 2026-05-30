@@ -12,10 +12,12 @@ import json
 import sys
 import time
 from datetime import datetime, timezone
+from io import StringIO
 from pathlib import Path
 from typing import Optional
 
 import pandas as pd
+import requests
 import yfinance as yf
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -29,11 +31,18 @@ PERIOD = "2y"
 INTERVAL = "1d"
 MAX_WORKERS = 12
 SP500_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+# Wikipedia 403s the default Python urllib UA — a descriptive UA is required.
+USER_AGENT = (
+    "financial-algorithm-snapshot/1.0 "
+    "(+https://github.com/JTHCreative/financial-algorithm)"
+)
 
 
 def load_sp500() -> pd.DataFrame:
     print(f"Fetching S&P 500 list from {SP500_URL}", flush=True)
-    tables = pd.read_html(SP500_URL)
+    resp = requests.get(SP500_URL, headers={"User-Agent": USER_AGENT}, timeout=30)
+    resp.raise_for_status()
+    tables = pd.read_html(StringIO(resp.text))
     df = tables[0]
     # Yahoo expects "-" instead of "." in tickers (e.g., BRK.B -> BRK-B).
     df["Symbol"] = df["Symbol"].astype(str).str.replace(".", "-", regex=False)
